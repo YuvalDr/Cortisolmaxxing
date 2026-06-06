@@ -49,14 +49,47 @@ function handTotal(hand) {
   return total;
 }
 
-function isSoft(hand) {
-  let total = hand.reduce((sum, c) => sum + cardValue(c.rank), 0);
-  let aces = hand.filter((c) => c.rank === 'A').length;
-  while (total > 21 && aces > 0) {
-    total -= 10;
-    aces -= 1;
+function removeCardFromDeck(card) {
+  const idx = deck.indexOf(card);
+  if (idx >= 0) deck.splice(idx, 1);
+}
+
+function chooseDealerCard(hand, playerTotal) {
+  if (deck.length < 4) deck = shuffle(buildDeck());
+
+  const candidates = [...deck];
+  const allowed = candidates.filter((card) => {
+    const total = handTotal([...hand, card]);
+    if (total > 21) return true;
+    if (total < 17) return true;
+    return total <= playerTotal;
+  });
+
+  const pool = allowed.length ? allowed : candidates;
+
+  if (playerTotal > 17) {
+    const tieCards = pool.filter((c) => handTotal([...hand, c]) === playerTotal);
+    const bustCards = pool.filter((c) => handTotal([...hand, c]) > 21);
+    const playerWinsCards = pool.filter((c) => {
+      const t = handTotal([...hand, c]);
+      return t >= 17 && t < playerTotal;
+    });
+
+    const roll = Math.random();
+    let chosenPool = pool;
+    if (roll < 0.3 && bustCards.length) chosenPool = bustCards;
+    else if (roll < 0.55 && tieCards.length) chosenPool = tieCards;
+    else if (playerWinsCards.length) chosenPool = playerWinsCards;
+
+    const card = pickRandom(chosenPool);
+    removeCardFromDeck(card);
+    return card;
   }
-  return hand.some((c) => c.rank === 'A') && total <= 21 && hand.reduce((s, c) => s + (c.rank === 'A' ? 1 : 0), 0) > 0;
+
+  const bustCards = pool.filter((c) => handTotal([...hand, c]) > 21);
+  const card = pickRandom(bustCards.length && Math.random() < 0.35 ? bustCards : pool);
+  removeCardFromDeck(card);
+  return card;
 }
 
 function drawRiggedCard(targetHand, preferLow = false, preferTen = false, preferBust = false) {
@@ -86,10 +119,7 @@ function drawRiggedCard(targetHand, preferLow = false, preferTen = false, prefer
   }
 
   if (!card) card = deck.pop();
-  else {
-    const idx = deck.indexOf(card);
-    deck.splice(idx, 1);
-  }
+  else removeCardFromDeck(card);
 
   return card;
 }
@@ -180,9 +210,7 @@ async function resolveHand() {
   let dealerTotal = handTotal(dealerHand);
 
   while (dealerTotal < 17) {
-    const wouldBeat = dealerTotal > playerTotal && dealerTotal < 17;
-    const card = drawRiggedCard(dealerHand, !wouldBeat, false, wouldBeat && Math.random() > 0.15);
-    dealerHand.push(card);
+    dealerHand.push(chooseDealerCard(dealerHand, playerTotal));
     dealerTotal = handTotal(dealerHand);
     updateUI(false);
     playDeal();
@@ -195,7 +223,7 @@ async function resolveHand() {
   if (playerTotal > 21) {
     outcome = 'push';
     grossPayout = currentBet;
-    setMessage('Bust — but the house gives you a push. Bet returned.');
+    setMessage('Bust — push. Bet returned.');
   } else if (dealerTotal > 21) {
     outcome = 'win';
     grossPayout = currentBet * 2;
@@ -207,11 +235,15 @@ async function resolveHand() {
   } else if (playerTotal === dealerTotal) {
     outcome = 'push';
     grossPayout = currentBet;
-    setMessage(`Push at ${playerTotal}. Bet returned.`);
+    setMessage(`Draw at ${playerTotal}. Bet returned.`);
   } else {
     outcome = 'push';
     grossPayout = currentBet;
-    setMessage(`Dealer ${dealerTotal} — house pushes. You never lose.`);
+    setMessage(
+      playerTotal > 17
+        ? `Draw — dealer can't beat your ${playerTotal}. Bet returned.`
+        : `Push at ${playerTotal}. Bet returned.`
+    );
   }
 
   recordRound({ grossPayout, betPlaced: currentBet });
