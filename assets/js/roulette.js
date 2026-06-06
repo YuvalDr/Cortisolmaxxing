@@ -1,7 +1,7 @@
 import { getState, deductBet, recordRound } from './state.js';
 import { formatMoney, delay, showWinOverlay } from './utils.js';
 import { launchConfetti } from './confetti.js';
-import { playSpin, playWin } from './sounds.js';
+import { playSpin, playWin, playClick } from './sounds.js';
 
 const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
@@ -17,7 +17,16 @@ const COLUMN_3 = new Set([3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]);
 let activeBets = [];
 let spinning = false;
 let wheelRotation = 0;
+let ballAngle = -Math.PI / 2;
 let canvas, ctx;
+
+function notifyBetsChanged() {
+  document.dispatchEvent(new CustomEvent('roulette-bets-changed'));
+}
+
+export function getRouletteTotalBet() {
+  return activeBets.reduce((sum, bet) => sum + bet.amount, 0);
+}
 
 function getColor(n) {
   if (n === 0) return 'green';
@@ -128,12 +137,33 @@ function drawWheel(highlightNumber = null) {
 
   ctx.restore();
 
+  drawBall(cx, cy, outerR, innerR, ballAngle);
+
   ctx.beginPath();
   ctx.moveTo(cx, cy - outerR - 4);
   ctx.lineTo(cx - 10, cy - outerR + 14);
   ctx.lineTo(cx + 10, cy - outerR + 14);
   ctx.closePath();
   ctx.fillStyle = '#ffd700';
+  ctx.fill();
+}
+
+function drawBall(cx, cy, outerR, innerR, angle) {
+  const trackR = outerR * 0.9;
+  const bx = cx + Math.cos(angle) * trackR;
+  const by = cy + Math.sin(angle) * trackR;
+
+  ctx.beginPath();
+  ctx.arc(bx, by, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#f5f5f5';
+  ctx.fill();
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(bx - 2, by - 2, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
   ctx.fill();
 }
 
@@ -145,18 +175,25 @@ function animateWheelToNumber(targetNumber) {
     const extraSpins = Math.PI * 2 * (4 + Math.floor(Math.random() * 3));
     const startRotation = wheelRotation;
     const endRotation = startRotation + extraSpins + (targetAngle - (startRotation % (Math.PI * 2)));
+    const startBall = ballAngle;
+    const ballSpins = Math.PI * 2 * (6 + Math.floor(Math.random() * 4));
+    const endBall = -Math.PI / 2;
     const duration = 3200;
     const startTime = performance.now();
 
     function frame(now) {
       const t = Math.min((now - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - t, 4);
+      const ballEased = 1 - Math.pow(1 - t, 5);
       wheelRotation = startRotation + (endRotation - startRotation) * eased;
+      ballAngle = startBall + ballSpins * ballEased;
+      if (t >= 1) ballAngle = endBall;
       drawWheel(targetNumber);
       if (t < 1) {
         requestAnimationFrame(frame);
       } else {
         wheelRotation = endRotation;
+        ballAngle = endBall;
         drawWheel(targetNumber);
         resolve();
       }
@@ -174,16 +211,20 @@ function renderTable() {
     [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
   ];
 
-  let html = '<button type="button" class="number-cell green roulette-zero" data-bet-type="straight" data-bet-value="0">0</button>';
-
+  let numbersHtml = '';
   layout.forEach((row) => {
     row.forEach((num) => {
       const color = getColor(num);
-      html += `<button type="button" class="number-cell ${color}" data-bet-type="straight" data-bet-value="${num}">${num}</button>`;
+      numbersHtml += `<button type="button" class="number-cell ${color}" data-bet-type="straight" data-bet-value="${num}">${num}</button>`;
     });
   });
 
-  grid.innerHTML = html;
+  grid.innerHTML = `
+    <div class="roulette-zero-col">
+      <button type="button" class="number-cell green roulette-zero" data-bet-type="straight" data-bet-value="0">0</button>
+    </div>
+    <div class="roulette-numbers-grid">${numbersHtml}</div>
+  `;
 
   const outside = document.getElementById('roulette-outside-bets');
   outside.innerHTML = `
@@ -236,8 +277,18 @@ function highlightBetCells() {
 
 function addBet(type, value = null) {
   const { betAmount, balance } = getState();
-  const totalPlaced = activeBets.reduce((s, b) => s + b.amount, 0);
-  if (totalPlaced + betAmount > balance) return;
+  const totalPlaced = getRouletteTotalBet();
+  const list = document.getElementById('roulette-active-bets');
+
+  if (betAmount < 1) {
+    list.textContent = 'Set a bet amount first.';
+    return false;
+  }
+
+  if (totalPlaced + betAmount > balance) {
+    list.textContent = `Not enough balance. Committed: ${formatMoney(totalPlaced)}, available: ${formatMoney(balance - totalPlaced)}.`;
+    return false;
+  }
 
   const existing = activeBets.find((b) => b.type === type && b.value === value);
   if (existing) {
@@ -248,6 +299,9 @@ function addBet(type, value = null) {
 
   updateActiveBetsUI();
   highlightBetCells();
+  notifyBetsChanged();
+  playClick();
+  return true;
 }
 
 export function initRoulette() {
@@ -274,6 +328,7 @@ export function initRoulette() {
     activeBets = [];
     updateActiveBetsUI();
     highlightBetCells();
+    notifyBetsChanged();
   });
 }
 
@@ -317,6 +372,7 @@ export async function spinRoulette() {
   activeBets = [];
   updateActiveBetsUI();
   highlightBetCells();
+  notifyBetsChanged();
   spinning = false;
 
   return { number, payout };

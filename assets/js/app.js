@@ -12,7 +12,13 @@ import {
 import { formatMoney, animateNumber, $ } from './utils.js';
 import { resumeAudio, playClick } from './sounds.js';
 import { initSlots, spinSlots, isSlotsSpinning } from './slots.js';
-import { initRoulette, spinRoulette, isRouletteSpinning, hasRouletteBets } from './roulette.js';
+import {
+  initRoulette,
+  spinRoulette,
+  isRouletteSpinning,
+  hasRouletteBets,
+  getRouletteTotalBet,
+} from './roulette.js';
 import {
   initBlackjack,
   dealBlackjack,
@@ -92,7 +98,8 @@ function updatePrimaryButton() {
   }
 
   if (currentView === 'roulette') {
-    btn.disabled = !hasRouletteBets() || isRouletteSpinning() || !canAffordBet();
+    const totalBet = getRouletteTotalBet();
+    btn.disabled = !hasRouletteBets() || isRouletteSpinning() || balance < totalBet;
     return;
   }
 
@@ -228,6 +235,8 @@ function bindEvents() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeStatsModal();
   });
+
+  document.addEventListener('roulette-bets-changed', updatePrimaryButton);
 }
 
 function init() {
