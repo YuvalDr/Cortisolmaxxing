@@ -107,6 +107,7 @@ function drawWheel(highlightNumber = null) {
     const start = i * slice - Math.PI / 2;
     const end = start + slice;
     const color = getColor(num);
+    const isWinner = highlightNumber === num;
 
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -114,8 +115,8 @@ function drawWheel(highlightNumber = null) {
     ctx.closePath();
     ctx.fillStyle = color === 'red' ? '#b91c1c' : color === 'black' ? '#1a1a1a' : '#15803d';
     ctx.fill();
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = isWinner ? '#fff' : '#ffd700';
+    ctx.lineWidth = isWinner ? 3 : 1;
     ctx.stroke();
 
     ctx.save();
@@ -137,47 +138,61 @@ function drawWheel(highlightNumber = null) {
 
   ctx.restore();
 
-  drawBall(cx, cy, outerR, innerR, ballAngle);
-
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - outerR - 4);
-  ctx.lineTo(cx - 10, cy - outerR + 14);
-  ctx.lineTo(cx + 10, cy - outerR + 14);
-  ctx.closePath();
-  ctx.fillStyle = '#ffd700';
-  ctx.fill();
+  drawBall(cx, cy, outerR, ballAngle, highlightNumber);
 }
 
-function drawBall(cx, cy, outerR, innerR, angle) {
+function drawBall(cx, cy, outerR, angle, winningNumber = null) {
   const trackR = outerR * 0.9;
   const bx = cx + Math.cos(angle) * trackR;
   const by = cy + Math.sin(angle) * trackR;
+  const settled = winningNumber !== null;
+
+  if (settled) {
+    ctx.beginPath();
+    ctx.arc(bx, by, 14, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.25)';
+    ctx.fill();
+  }
 
   ctx.beginPath();
-  ctx.arc(bx, by, 7, 0, Math.PI * 2);
+  ctx.arc(bx, by, settled ? 9 : 7, 0, Math.PI * 2);
   ctx.fillStyle = '#f5f5f5';
   ctx.fill();
-  ctx.strokeStyle = '#bbb';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = settled ? '#ffd700' : '#bbb';
+  ctx.lineWidth = settled ? 2.5 : 1.5;
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.arc(bx - 2, by - 2, 2.5, 0, Math.PI * 2);
+  ctx.arc(bx - 2, by - 2, settled ? 3 : 2.5, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
   ctx.fill();
+
+}
+
+function normalizeAngle(a) {
+  const tau = Math.PI * 2;
+  return ((a % tau) + tau) % tau;
 }
 
 function animateWheelToNumber(targetNumber) {
   return new Promise((resolve) => {
     const targetIndex = WHEEL_ORDER.indexOf(targetNumber);
     const slice = (Math.PI * 2) / WHEEL_ORDER.length;
-    const targetAngle = -(targetIndex * slice + slice / 2) + Math.PI / 2;
-    const extraSpins = Math.PI * 2 * (4 + Math.floor(Math.random() * 3));
+    // Align winning pocket center with ball at top (-π/2)
+    const targetRotation = -(targetIndex * slice + slice / 2);
+
     const startRotation = wheelRotation;
-    const endRotation = startRotation + extraSpins + (targetAngle - (startRotation % (Math.PI * 2)));
-    const startBall = ballAngle;
-    const ballSpins = Math.PI * 2 * (6 + Math.floor(Math.random() * 4));
+    const extraSpins = (Math.PI * 2) * (4 + Math.floor(Math.random() * 3));
+
+    const startNorm = normalizeAngle(startRotation);
+    const targetNorm = normalizeAngle(targetRotation);
+    let adjust = targetNorm - startNorm;
+    if (adjust <= 0) adjust += Math.PI * 2;
+
+    const endRotation = startRotation + extraSpins + adjust;
     const endBall = -Math.PI / 2;
+    const startBall = normalizeAngle(ballAngle);
+    const ballOrbit = (Math.PI * 2) * (5 + Math.floor(Math.random() * 3));
     const duration = 3200;
     const startTime = performance.now();
 
@@ -186,17 +201,18 @@ function animateWheelToNumber(targetNumber) {
       const eased = 1 - Math.pow(1 - t, 4);
       const ballEased = 1 - Math.pow(1 - t, 5);
       wheelRotation = startRotation + (endRotation - startRotation) * eased;
-      ballAngle = startBall + ballSpins * ballEased;
-      if (t >= 1) ballAngle = endBall;
-      drawWheel(targetNumber);
+
       if (t < 1) {
-        requestAnimationFrame(frame);
+        ballAngle = startBall + ballOrbit * ballEased;
+        drawWheel();
       } else {
         wheelRotation = endRotation;
         ballAngle = endBall;
         drawWheel(targetNumber);
         resolve();
       }
+
+      if (t < 1) requestAnimationFrame(frame);
     }
 
     requestAnimationFrame(frame);
@@ -342,9 +358,8 @@ export async function spinRoulette() {
 
   spinning = true;
   const resultEl = document.getElementById('roulette-result');
-  const badge = document.getElementById('roulette-result-number');
   resultEl.classList.add('hidden');
-  badge.classList.add('hidden');
+  drawWheel();
 
   if (!deductBet(totalBet)) {
     spinning = false;
@@ -354,10 +369,6 @@ export async function spinRoulette() {
   const { number, payout } = findBestWinningNumber();
   playSpin();
   await animateWheelToNumber(number);
-
-  badge.textContent = number;
-  badge.className = `roulette-result-badge ${getColor(number)}`;
-  badge.classList.remove('hidden');
 
   recordRound({ grossPayout: payout, betPlaced: totalBet });
 

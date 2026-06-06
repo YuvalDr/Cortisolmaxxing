@@ -169,7 +169,7 @@ body {
 
 .main-content {
   flex: 1;
-  padding: 1.25rem 1rem 7rem;
+  padding: 1.25rem 1rem calc(22rem + env(safe-area-inset-bottom, 0px));
   min-width: 0;
 }
 
@@ -633,6 +633,9 @@ body {
 
 #view-roulette .roulette-bets {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .wheel-container {
@@ -645,33 +648,6 @@ body {
 #roulette-canvas {
   max-width: 100%;
   filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.2));
-}
-
-.roulette-result-badge {
-  position: absolute;
-  width: 4rem;
-  height: 4rem;
-  border-radius: 50%;
-  background: var(--gold);
-  color: #0a0808;
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  font-size: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 24px rgba(255, 215, 0, 0.6);
-  animation: pop-in 0.4s ease;
-}
-
-.roulette-result-badge.red { background: #dc2626; color: #fff; }
-.roulette-result-badge.black { background: #1a1a1a; color: #fff; border: 2px solid #444; }
-.roulette-result-badge.green { background: #16a34a; color: #fff; }
-
-@keyframes pop-in {
-  0% { transform: scale(0); opacity: 0; }
-  70% { transform: scale(1.15); }
-  100% { transform: scale(1); opacity: 1; }
 }
 
 .bet-chips-row {
@@ -709,6 +685,7 @@ body {
   padding: 0 0.25rem 0.5rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 215, 0, 0.35) transparent;
+  scroll-margin-bottom: calc(20rem + env(safe-area-inset-bottom, 0px));
 }
 
 .roulette-table-scroll::-webkit-scrollbar {
