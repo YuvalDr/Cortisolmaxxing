@@ -318,12 +318,12 @@ export async function dealBlackjack() {
   document.getElementById('blackjack-result').classList.add('hidden');
   setMessage('Cards dealt. Make your move.');
   setActionsVisible(true);
-  updateDoubleButton();
 
   dealInitial();
   playDeal();
   await delay(300);
   playDeal();
+  updateDoubleButton();
 
   const playerTotal = handTotal(playerHand);
   if (playerTotal === 21) {
