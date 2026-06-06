@@ -13,6 +13,7 @@ const DEFAULT_STATE = {
 
 let state = { ...DEFAULT_STATE };
 let soundEnabled = true;
+let betPanelCollapsed = false;
 
 const listeners = new Set();
 
@@ -29,13 +30,26 @@ export function getState() {
   return { ...state };
 }
 
+function savePrefs() {
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ soundEnabled, betPanelCollapsed }));
+}
+
 export function getSoundEnabled() {
   return soundEnabled;
 }
 
+export function getBetPanelCollapsed() {
+  return betPanelCollapsed;
+}
+
 export function setSoundEnabled(enabled) {
   soundEnabled = enabled;
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ soundEnabled }));
+  savePrefs();
+}
+
+export function setBetPanelCollapsed(collapsed) {
+  betPanelCollapsed = collapsed;
+  savePrefs();
 }
 
 export function loadState() {
@@ -54,8 +68,12 @@ export function loadState() {
     if (typeof prefs.soundEnabled === 'boolean') {
       soundEnabled = prefs.soundEnabled;
     }
+    if (typeof prefs.betPanelCollapsed === 'boolean') {
+      betPanelCollapsed = prefs.betPanelCollapsed;
+    }
   } catch {
     soundEnabled = true;
+    betPanelCollapsed = false;
   }
 
   notify();

@@ -6,10 +6,12 @@ import {
   getSessionProfit,
   getSoundEnabled,
   setSoundEnabled,
+  getBetPanelCollapsed,
+  setBetPanelCollapsed,
   resetSession,
   canAffordBet,
 } from './state.js';
-import { formatMoney, animateNumber, $ } from './utils.js';
+import { formatMoney, animateNumber } from './utils.js';
 import { resumeAudio, playClick } from './sounds.js';
 import { initSlots, spinSlots, isSlotsSpinning } from './slots.js';
 import {
@@ -58,7 +60,37 @@ function showView(view) {
     resetBlackjackRound();
   }
 
+  updateBetPanelLayout();
   updatePrimaryButton();
+}
+
+function updateBetPanelSummary() {
+  const summary = document.getElementById('bet-panel-summary');
+  if (summary) {
+    summary.textContent = formatMoney(getState().betAmount);
+  }
+}
+
+function updateBetPanelLayout() {
+  const betPanel = document.getElementById('bet-panel');
+  const toggle = document.getElementById('btn-bet-panel-toggle');
+  const collapsed = getBetPanelCollapsed();
+  const onGame = currentView !== 'hub';
+
+  betPanel.classList.toggle('collapsed', collapsed);
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  }
+
+  document.body.dataset.betPanel = onGame ? (collapsed ? 'collapsed' : 'expanded') : 'hidden';
+  updateBetPanelSummary();
+}
+
+function toggleBetPanel() {
+  setBetPanelCollapsed(!getBetPanelCollapsed());
+  updateBetPanelLayout();
+  playClick();
+  initIcons();
 }
 
 function updateHeader(state) {
@@ -177,6 +209,7 @@ function bindEvents() {
   });
 
   document.getElementById('btn-primary-action').addEventListener('click', handlePrimaryAction);
+  document.getElementById('btn-bet-panel-toggle').addEventListener('click', toggleBetPanel);
 
   document.getElementById('bet-input').addEventListener('change', (e) => {
     const val = setBetAmount(parseInt(e.target.value, 10) || 1);
@@ -252,12 +285,14 @@ function init() {
   subscribe((s) => {
     updateHeader(s);
     updateBetInput();
+    updateBetPanelSummary();
     updatePrimaryButton();
   });
 
   updateHeader(state);
   updateBetInput();
   updateSoundButton();
+  updateBetPanelLayout();
   showView('hub');
 }
 

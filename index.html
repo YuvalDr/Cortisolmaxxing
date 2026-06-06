@@ -189,8 +189,14 @@
 
     <!-- Bet Panel -->
     <aside id="bet-panel" class="bet-panel hidden">
+      <button type="button" id="btn-bet-panel-toggle" class="bet-panel-toggle" aria-expanded="true" aria-controls="bet-panel-body">
+        <i data-lucide="chevron-down" class="bet-panel-chevron"></i>
+        <span class="bet-panel-toggle-text">Place Your Bet</span>
+        <span id="bet-panel-summary" class="bet-panel-summary"></span>
+      </button>
+      <div id="bet-panel-body" class="bet-panel-body">
       <div class="bet-panel-inner">
-        <h3 class="bet-panel-title">Place Your Bet</h3>
+        <h3 class="bet-panel-title bet-panel-title-desktop">Place Your Bet</h3>
         <div class="bet-input-row">
           <button type="button" class="bet-adjust" data-bet-delta="-10" aria-label="Decrease bet">−</button>
           <div class="bet-input-wrap">
@@ -206,10 +212,11 @@
           <button type="button" class="quick-bet" data-bet="500">$500</button>
           <button type="button" class="quick-bet quick-bet-max" data-bet="max">MAX</button>
         </div>
-        <button type="button" id="btn-primary-action" class="primary-action-btn">
-          <span id="primary-action-label">Spin</span>
-        </button>
       </div>
+      </div>
+      <button type="button" id="btn-primary-action" class="primary-action-btn">
+        <span id="primary-action-label">Spin</span>
+      </button>
     </aside>
   </div>
 
