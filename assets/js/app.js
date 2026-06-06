@@ -270,6 +270,7 @@ function bindEvents() {
   });
 
   document.addEventListener('roulette-bets-changed', updatePrimaryButton);
+  document.addEventListener('blackjack-round-ended', updatePrimaryButton);
 }
 
 function init() {

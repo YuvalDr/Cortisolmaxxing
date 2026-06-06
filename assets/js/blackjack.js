@@ -13,6 +13,29 @@ let dealerHand = [];
 let phase = 'idle';
 let currentBet = 0;
 let doubled = false;
+let resolving = false;
+
+function notifyRoundEnd() {
+  document.dispatchEvent(new CustomEvent('blackjack-round-ended'));
+}
+
+function lockPlayerActions() {
+  phase = 'resolving';
+  setActionsVisible(false);
+  document.getElementById('btn-double').disabled = true;
+}
+
+function updateDoubleButton() {
+  const btn = document.getElementById('btn-double');
+  if (!btn) return;
+  const { balance, betAmount } = getState();
+  const canDouble =
+    phase === 'player' &&
+    playerHand.length === 2 &&
+    !doubled &&
+    balance >= betAmount;
+  btn.disabled = !canDouble;
+}
 
 function buildDeck() {
   const cards = [];
@@ -201,20 +224,25 @@ function removeFromDeck(card) {
 }
 
 async function resolveHand() {
-  phase = 'resolving';
-  setActionsVisible(false);
+  if (resolving || phase === 'idle' || phase === 'done') return;
+
+  if (phase === 'player') lockPlayerActions();
+
+  resolving = true;
   updateUI(false);
-  await delay(500);
+  await delay(400);
 
   const playerTotal = handTotal(playerHand);
   let dealerTotal = handTotal(dealerHand);
 
-  while (dealerTotal < 17) {
-    dealerHand.push(chooseDealerCard(dealerHand, playerTotal));
-    dealerTotal = handTotal(dealerHand);
-    updateUI(false);
-    playDeal();
-    await delay(600);
+  if (playerTotal <= 21) {
+    while (dealerTotal < 17) {
+      dealerHand.push(chooseDealerCard(dealerHand, playerTotal));
+      dealerTotal = handTotal(dealerHand);
+      updateUI(false);
+      playDeal();
+      await delay(600);
+    }
   }
 
   let outcome;
@@ -249,18 +277,23 @@ async function resolveHand() {
   recordRound({ grossPayout, betPlaced: currentBet });
 
   const resultEl = document.getElementById('blackjack-result');
+  const profit = grossPayout - currentBet;
   if (outcome === 'win') {
-    resultEl.textContent = `+$${grossPayout - currentBet} profit`;
+    resultEl.textContent = `+${formatMoney(profit)} profit${doubled ? ' (doubled down)' : ''}`;
     playWin(grossPayout >= 500 ? 'big' : 'normal');
     showWinOverlay(grossPayout, `${playerTotal} beats ${dealerTotal}`);
     if (grossPayout > 200) launchConfetti('big');
   } else {
-    resultEl.textContent = 'Push — bet returned';
+    resultEl.textContent = doubled
+      ? `Push — ${formatMoney(currentBet)} returned (doubled down)`
+      : 'Push — bet returned';
     playPush();
   }
   resultEl.classList.remove('hidden');
 
+  resolving = false;
   phase = 'done';
+  notifyRoundEnd();
 }
 
 export function initBlackjack() {
@@ -279,13 +312,13 @@ export async function dealBlackjack() {
 
   currentBet = betAmount;
   doubled = false;
+  resolving = false;
   phase = 'player';
 
   document.getElementById('blackjack-result').classList.add('hidden');
   setMessage('Cards dealt. Make your move.');
   setActionsVisible(true);
-
-  document.getElementById('btn-double').disabled = balance < betAmount;
+  updateDoubleButton();
 
   dealInitial();
   playDeal();
@@ -311,14 +344,15 @@ async function onHit() {
   playerHand.push(card);
   updateUI(true);
   playDeal();
+  updateDoubleButton();
 
-  document.getElementById('btn-double').disabled = true;
-
-  if (handTotal(playerHand) > 21) {
+  const newTotal = handTotal(playerHand);
+  if (newTotal > 21) {
+    lockPlayerActions();
     setMessage('Over 21 — resolving...');
     await delay(400);
     await resolveHand();
-  } else if (handTotal(playerHand) === 21) {
+  } else if (newTotal === 21) {
     setMessage('21! Standing.');
     await delay(500);
     await onStand();
@@ -335,19 +369,29 @@ async function onDouble() {
   if (phase !== 'player' || playerHand.length !== 2 || doubled) return;
 
   const { balance, betAmount } = getState();
-  if (balance < betAmount) return;
+  if (balance < betAmount) {
+    setMessage(`Need ${formatMoney(betAmount)} more to double down.`);
+    updateDoubleButton();
+    return;
+  }
 
   if (!deductBet(betAmount)) return;
 
   currentBet += betAmount;
   doubled = true;
-  document.getElementById('btn-double').disabled = true;
+  lockPlayerActions();
+  setMessage(`Doubled down to ${formatMoney(currentBet)} — one card...`);
 
-  const card = drawRiggedCard(playerHand, handTotal(playerHand) >= 10, handTotal(playerHand) < 11);
+  const total = handTotal(playerHand);
+  const card = drawRiggedCard(
+    playerHand,
+    total >= 10,
+    total <= 11 && Math.random() > 0.3
+  );
   playerHand.push(card);
-  updateUI(true);
+  updateUI(false);
   playDeal();
-  await delay(500);
+  await delay(600);
   await resolveHand();
 }
 
@@ -357,6 +401,7 @@ export function isBlackjackActive() {
 
 export function resetBlackjackRound() {
   phase = 'idle';
+  resolving = false;
   playerHand = [];
   dealerHand = [];
   currentBet = 0;
@@ -365,4 +410,6 @@ export function resetBlackjackRound() {
   setActionsVisible(false);
   setMessage('');
   document.getElementById('blackjack-result').classList.add('hidden');
+  updateDoubleButton();
+  notifyRoundEnd();
 }
