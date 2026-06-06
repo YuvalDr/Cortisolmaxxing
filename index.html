@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cortisolmaxxing — You Always Win</title>
+  <meta name="description" content="Luxury casino gambling simulator. Roulette, Blackjack, Slots — rigged in your favor." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Cinzel', 'serif'],
+            body: ['DM Sans', 'sans-serif'],
+          },
+          colors: {
+            casino: {
+              bg: '#0a0808',
+              surface: '#141010',
+              card: '#1c1515',
+              gold: '#ffd700',
+              goldDim: '#c9a227',
+              burgundy: '#3d0a14',
+              neon: '#ff6b35',
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="assets/css/main.css" />
+</head>
+<body class="font-body bg-casino-bg text-white min-h-screen overflow-x-hidden">
+
+  <div class="ambient-glow" aria-hidden="true"></div>
+  <canvas id="confetti-canvas" class="confetti-canvas" aria-hidden="true"></canvas>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <button type="button" id="btn-home" class="logo-btn" aria-label="Back to game hub">
+        <span class="logo-text">CORTISOL<span class="logo-accent">MAXXING</span></span>
+        <span class="logo-tagline">You Always Win</span>
+      </button>
+
+      <div class="header-stats">
+        <div class="stat-pill">
+          <span class="stat-label">Balance</span>
+          <span id="display-balance" class="stat-value balance-value">$1,000</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Session Profit</span>
+          <span id="display-profit" class="stat-value profit-value">$0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Streak</span>
+          <span id="display-streak" class="stat-value">0</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" id="btn-sound" class="icon-btn" aria-label="Toggle sound" title="Toggle sound">
+          <i data-lucide="volume-2" class="icon-sound-on"></i>
+          <i data-lucide="volume-x" class="icon-sound-off hidden"></i>
+        </button>
+        <button type="button" id="btn-stats" class="icon-btn" aria-label="Session stats" title="Session stats">
+          <i data-lucide="bar-chart-3"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <main class="main-content">
+      <!-- Hub -->
+      <section id="view-hub" class="view active">
+        <div class="hub-hero">
+          <h1 class="hub-title">Choose Your Table</h1>
+          <p class="hub-subtitle">High stakes. Zero risk. Maximum dopamine.</p>
+        </div>
+        <div class="game-grid">
+          <button type="button" class="game-card" data-game="slots">
+            <div class="game-card-glow"></div>
+            <i data-lucide="cherry" class="game-card-icon"></i>
+            <h2>Slots</h2>
+            <p>Spin the reels. Chase the jackpot.</p>
+            <span class="game-card-cta">Play Now</span>
+          </button>
+          <button type="button" class="game-card" data-game="roulette">
+            <div class="game-card-glow"></div>
+            <i data-lucide="circle-dot" class="game-card-icon"></i>
+            <h2>Roulette</h2>
+            <p>European wheel. Guaranteed glory.</p>
+            <span class="game-card-cta">Play Now</span>
+          </button>
+          <button type="button" class="game-card" data-game="blackjack">
+            <div class="game-card-glow"></div>
+            <i data-lucide="spade" class="game-card-icon"></i>
+            <h2>Blackjack</h2>
+            <p>Beat the dealer. Never bust your vibe.</p>
+            <span class="game-card-cta">Play Now</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Slots -->
+      <section id="view-slots" class="view hidden">
+        <div class="game-header">
+          <button type="button" class="back-btn" data-back>
+            <i data-lucide="arrow-left"></i> Hub
+          </button>
+          <h2 class="game-title">Luxury Slots</h2>
+        </div>
+        <div class="slots-machine">
+          <div class="slots-frame">
+            <div class="slots-reels" id="slots-reels">
+              <div class="reel" id="reel-0"><div class="reel-strip"></div></div>
+              <div class="reel" id="reel-1"><div class="reel-strip"></div></div>
+              <div class="reel" id="reel-2"><div class="reel-strip"></div></div>
+            </div>
+            <div class="payline" aria-hidden="true"></div>
+          </div>
+          <div id="slots-result" class="game-result hidden"></div>
+          <div class="payout-table">
+            <h3>Payouts</h3>
+            <div class="payout-grid" id="slots-payout-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Roulette -->
+      <section id="view-roulette" class="view hidden">
+        <div class="game-header">
+          <button type="button" class="back-btn" data-back>
+            <i data-lucide="arrow-left"></i> Hub
+          </button>
+          <h2 class="game-title">European Roulette</h2>
+        </div>
+        <div class="roulette-layout">
+          <div class="roulette-wheel-area">
+            <div class="wheel-container">
+              <canvas id="roulette-canvas" width="320" height="320" aria-label="Roulette wheel"></canvas>
+              <div id="roulette-result-number" class="roulette-result-badge hidden">—</div>
+            </div>
+          </div>
+          <div class="roulette-bets">
+            <div class="bet-chips-row" id="roulette-outside-bets"></div>
+            <div class="roulette-table" id="roulette-number-grid"></div>
+            <div id="roulette-active-bets" class="active-bets-list"></div>
+            <button type="button" id="btn-clear-bets" class="secondary-btn hidden">Clear Bets</button>
+          </div>
+        </div>
+        <div id="roulette-result" class="game-result hidden"></div>
+      </section>
+
+      <!-- Blackjack -->
+      <section id="view-blackjack" class="view hidden">
+        <div class="game-header">
+          <button type="button" class="back-btn" data-back>
+            <i data-lucide="arrow-left"></i> Hub
+          </button>
+          <h2 class="game-title">Blackjack</h2>
+        </div>
+        <div class="blackjack-table">
+          <div class="bj-hand dealer-hand">
+            <div class="hand-label">Dealer <span id="dealer-total" class="hand-total"></span></div>
+            <div id="dealer-cards" class="card-row"></div>
+          </div>
+          <div class="bj-center">
+            <div id="blackjack-message" class="bj-message"></div>
+          </div>
+          <div class="bj-hand player-hand">
+            <div class="hand-label">You <span id="player-total" class="hand-total"></span></div>
+            <div id="player-cards" class="card-row"></div>
+          </div>
+          <div id="blackjack-actions" class="bj-actions hidden">
+            <button type="button" id="btn-hit" class="action-btn">Hit</button>
+            <button type="button" id="btn-stand" class="action-btn">Stand</button>
+            <button type="button" id="btn-double" class="action-btn action-gold">Double Down</button>
+          </div>
+          <div id="blackjack-result" class="game-result hidden"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bet Panel -->
+    <aside id="bet-panel" class="bet-panel hidden">
+      <div class="bet-panel-inner">
+        <h3 class="bet-panel-title">Place Your Bet</h3>
+        <div class="bet-input-row">
+          <button type="button" class="bet-adjust" data-bet-delta="-10" aria-label="Decrease bet">−</button>
+          <div class="bet-input-wrap">
+            <span class="bet-currency">$</span>
+            <input type="number" id="bet-input" min="1" step="1" value="50" aria-label="Bet amount" />
+          </div>
+          <button type="button" class="bet-adjust" data-bet-delta="10" aria-label="Increase bet">+</button>
+        </div>
+        <div class="bet-quick-row">
+          <button type="button" class="quick-bet" data-bet="10">$10</button>
+          <button type="button" class="quick-bet" data-bet="50">$50</button>
+          <button type="button" class="quick-bet" data-bet="100">$100</button>
+          <button type="button" class="quick-bet" data-bet="500">$500</button>
+          <button type="button" class="quick-bet quick-bet-max" data-bet="max">MAX</button>
+        </div>
+        <button type="button" id="btn-primary-action" class="primary-action-btn">
+          <span id="primary-action-label">Spin</span>
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Stats Modal -->
+  <div id="stats-modal" class="modal hidden" role="dialog" aria-labelledby="stats-title" aria-modal="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="stats-title" class="modal-title">Session Stats</h2>
+        <button type="button" class="icon-btn" data-close-modal aria-label="Close">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="stats-grid">
+        <div class="stats-item">
+          <span class="stats-item-label">Total Profit</span>
+          <span id="stats-profit" class="stats-item-value">$0</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-item-label">Biggest Win</span>
+          <span id="stats-biggest" class="stats-item-value">$0</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-item-label">Games Played</span>
+          <span id="stats-played" class="stats-item-value">0</span>
+        </div>
+        <div class="stats-item">
+          <span class="stats-item-label">Win Streak</span>
+          <span id="stats-streak" class="stats-item-value">0</span>
+        </div>
+      </div>
+      <button type="button" id="btn-reset-session" class="danger-btn">Reset Session</button>
+    </div>
+  </div>
+
+  <!-- Win overlay -->
+  <div id="win-overlay" class="win-overlay hidden" aria-live="polite">
+    <div class="win-popup">
+      <div class="win-popup-glow"></div>
+      <p class="win-popup-label">YOU WIN</p>
+      <p id="win-popup-amount" class="win-popup-amount">+$0</p>
+      <p id="win-popup-detail" class="win-popup-detail"></p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
